@@ -7,6 +7,7 @@ use super::data_transfer_objects::usage_report_dto::UsageReportDTO;
 use super::data_transfer_objects::usage_totals_dto::UsageTotalsDTO;
 use super::data_transfer_objects::zdev_allowance_dto::ZDevAllowanceDTO;
 use super::request_parameters::usage_period::UsagePeriod;
+use crate::number_text::{compact, group_digits};
 use crate::text_table::{self, Align};
 
 const COLUMNS: [(&str, Align); 6] = [
@@ -112,18 +113,17 @@ pub fn write_profile_usages(
     let total_row = [
         "TOTAL".to_string(),
         String::new(),
-        reports()
-            .map(|report| report.totals.requests)
-            .sum::<u64>()
-            .to_string(),
-        reports()
-            .map(|report| report.totals.input_tokens)
-            .sum::<u64>()
-            .to_string(),
-        reports()
-            .map(|report| report.totals.output_tokens)
-            .sum::<u64>()
-            .to_string(),
+        compact(reports().map(|report| report.totals.requests).sum::<u64>()),
+        compact(
+            reports()
+                .map(|report| report.totals.input_tokens)
+                .sum::<u64>(),
+        ),
+        compact(
+            reports()
+                .map(|report| report.totals.output_tokens)
+                .sum::<u64>(),
+        ),
         dollars(reports().map(|report| report.totals.cost_usd).sum()),
         String::new(),
     ];
@@ -136,9 +136,9 @@ pub fn write_profile_usages(
                     .key_name
                     .clone()
                     .unwrap_or_else(|| "(no name)".to_string()),
-                report.totals.requests.to_string(),
-                report.totals.input_tokens.to_string(),
-                report.totals.output_tokens.to_string(),
+                compact(report.totals.requests),
+                compact(report.totals.input_tokens),
+                compact(report.totals.output_tokens),
                 dollars(report.totals.cost_usd),
                 report.monthly_limit.as_ref().map_or_else(
                     || "-".to_string(),
@@ -173,13 +173,14 @@ fn zdev_line(zdev: &ZDevAllowanceDTO) -> String {
         Some(included) => format!(
             "{} plan: {} of {} tokens used this month ({})",
             zdev.plan,
-            zdev.used_tokens,
-            included,
+            compact(zdev.used_tokens),
+            compact(included),
             percent(Decimal::from(zdev.used_tokens), Decimal::from(included))
         ),
         None => format!(
             "{} plan: {} tokens used this month (fair use)",
-            zdev.plan, zdev.used_tokens
+            zdev.plan,
+            compact(zdev.used_tokens)
         ),
     };
     let used_up = zdev
@@ -196,22 +197,30 @@ fn zdev_line(zdev: &ZDevAllowanceDTO) -> String {
 fn usage_row(name: String, usage: &UsageTotalsDTO) -> [String; 6] {
     [
         name,
-        usage.requests.to_string(),
-        usage.input_tokens.to_string(),
-        usage.output_tokens.to_string(),
-        usage.cache_read_tokens.to_string(),
+        compact(usage.requests),
+        compact(usage.input_tokens),
+        compact(usage.output_tokens),
+        compact(usage.cache_read_tokens),
         dollars(usage.cost_usd),
     ]
 }
 
-/// An amount in whole cents, half a cent rounding up. Above zero but below
-/// half a cent shows as `<0.01`, so a little usage does not read as free.
+/// An amount in whole cents, half a cent rounding up, thousands grouped
+/// (`1,234.50`). Above zero but below half a cent shows as `<0.01`, so a
+/// little usage does not read as free.
 fn dollars(amount: Decimal) -> String {
     let cents = amount.round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero);
     if cents.is_zero() && amount > Decimal::ZERO {
         return "<0.01".to_string();
     }
-    format!("{cents:.2}")
+    let text = format!("{:.2}", cents.abs());
+    let (whole, fraction) = text.split_once('.').unwrap_or((&text, "00"));
+    let sign = if cents.is_sign_negative() && !cents.is_zero() {
+        "-"
+    } else {
+        ""
+    };
+    format!("{sign}{}.{fraction}", group_digits(whole))
 }
 
 fn percent(part: Decimal, whole: Decimal) -> String {
@@ -240,10 +249,10 @@ mod tests {
 Key     laptop
 Period  this month, 2026-10-01 to 2026-10-05 (UTC)
 
-MODEL                    REQUESTS    INPUT  OUTPUT  CACHE READ  COST $
-anthropic/claude-sonnet        42   910000   25000      700000    3.18
-zdev                          120  1200000   34000      800000    0.00
-TOTAL                         162  2110000   59000     1500000    3.18
+MODEL                    REQUESTS  INPUT  OUTPUT  CACHE READ  COST $
+anthropic/claude-sonnet        42   910K     25K        700K    3.18
+zdev                          120   1.2M     34K        800K    0.00
+TOTAL                         162   2.1M     59K        1.5M    3.18
 
 Monthly limit  $3.18 of $50.00 used this month (6%)
 Credits        $87.66 available to the organization
@@ -279,9 +288,10 @@ Period  this month, 2026-10-01 to 2026-10-05 (UTC)
             )
             .unwrap(),
         );
-        assert!(rendered(&report).ends_with(
-            "\nZDev           Go plan: 40000000 of 100000000 tokens used this month (40%)\n"
-        ));
+        assert!(
+            rendered(&report)
+                .ends_with("\nZDev           Go plan: 40M of 100M tokens used this month (40%)\n")
+        );
 
         let zdev = report.zdev.as_mut().unwrap();
         zdev.used_tokens = 100_000_000;
@@ -296,9 +306,7 @@ Period  this month, 2026-10-01 to 2026-10-05 (UTC)
         let zdev = report.zdev.as_mut().unwrap();
         zdev.plan = serde_json::from_str("\"max\"").unwrap();
         zdev.included_tokens = None;
-        assert!(
-            rendered(&report).ends_with("Max plan: 100000000 tokens used this month (fair use)\n")
-        );
+        assert!(rendered(&report).ends_with("Max plan: 100M tokens used this month (fair use)\n"));
     }
 
     #[test]
@@ -330,11 +338,11 @@ Period  this month, 2026-10-01 to 2026-10-05 (UTC)
             "\
 Period  this month, 2026-10-01 to 2026-10-05 (UTC)
 
-PROFILE  KEY        REQUESTS    INPUT  OUTPUT  COST $  MONTHLY LIMIT
-acme     laptop          162  2110000   59000    3.18  6% of $50.00
-globex   (no name)       162  2110000   59000    3.18  -
+PROFILE  KEY        REQUESTS  INPUT  OUTPUT  COST $  MONTHLY LIMIT
+acme     laptop          162   2.1M     59K    3.18  6% of $50.00
+globex   (no name)       162   2.1M     59K    3.18  -
 initech  error
-TOTAL                    324  4220000  118000    6.37
+TOTAL                    324   4.2M    118K    6.37
 "
         );
     }
@@ -346,5 +354,7 @@ TOTAL                    324  4220000  118000    6.37
         assert_eq!(dollars(Decimal::new(5, 3)), "0.01");
         assert_eq!(dollars(Decimal::new(31849, 4)), "3.18");
         assert_eq!(dollars(Decimal::new(50, 0)), "50.00");
+        assert_eq!(dollars(Decimal::new(123456789, 2)), "1,234,567.89");
+        assert_eq!(dollars(Decimal::new(-123450, 2)), "-1,234.50");
     }
 }

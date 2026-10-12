@@ -13,6 +13,7 @@ pub mod constants;
 pub mod credentials;
 pub mod key_details;
 pub mod models;
+pub mod number_text;
 pub mod search;
 pub mod terminal_text;
 pub mod text_table;
