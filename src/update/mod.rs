@@ -1,4 +1,6 @@
 pub mod data_transfer_objects;
+mod installer;
+mod release_downloads;
 pub mod update_command;
 pub mod update_error;
 pub mod update_notice;

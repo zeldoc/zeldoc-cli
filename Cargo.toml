@@ -32,13 +32,18 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 dirs = "7.0"
 rpassword = "7.4"
 
-# `zeldoc update`: reinstalls with the release's own installer, using the
-# receipt the installer left behind; tokio runs its async API
+# `zeldoc update`: reinstalls with the release's own installer. axoupdater
+# only reads the receipt the installer left behind; its own update asks
+# GitHub's API, whose limit for networks without a GitHub login runs out
+# (see `constants::releases`); it does not compile without `github_releases`.
+# tempfile holds the downloaded installer.
 axoupdater = { version = "0.10", default-features = false, features = ["github_releases"] }
-tokio = { version = "1", default-features = false, features = ["rt", "net", "time"] }
-
-[dev-dependencies]
 tempfile = "3"
+
+# Windows cannot delete a running executable; this deletes the replaced one
+# once zeldoc exits
+[target.'cfg(windows)'.dependencies]
+self-replace = "1.5"
 
 # The profile that 'dist' will build with
 [profile.dist]

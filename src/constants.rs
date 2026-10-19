@@ -16,6 +16,16 @@ pub mod api {
         "https://docs.zeldoc.ai/connect-opencode#generate-an-api-key";
 }
 
+/// Where releases of the CLI are published.
+pub mod releases {
+    /// The release pages on github.com. Not GitHub's API: without a GitHub
+    /// login it allows 60 requests an hour per IP address, and everyone on an
+    /// office network shares one, so other tools there often use it up.
+    /// Deliberately not configurable: `zeldoc update` runs the installer it
+    /// downloads from here.
+    pub const PAGES_URL: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/releases");
+}
+
 /// Environment variables the CLI reads.
 pub mod environment {
     /// An API key; used when neither ZELDOC_PROFILE, `--profile` nor a pin

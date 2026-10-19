@@ -20,6 +20,12 @@ commit messages. A mistake cannot be undone by a later commit: the history keeps
   itself used. It reports one key only, never the organization's other keys.
 - **Key fields are `GET /v1/zeldoc/key`**: the key's own name and its values for the
   organization's key fields (`zeldoc auth fields`). Also one key only, and read-only.
+- **Releases come from the release pages on github.com, never GitHub's API**
+  (`constants::releases`): the latest release from where `/releases/latest` redirects, the
+  installer from `/releases/download/<tag>/`. Without a GitHub login the API allows 60
+  requests an hour per IP address, which a shared office network runs out of. axoupdater's
+  own update and version check call that API, so `zeldoc update` uses axoupdater only to read
+  the install receipt and runs the installer itself.
 
 ## Build & Verification Commands
 Run inside `flox activate`, in this order: `cargo fmt -> cargo clippy -> cargo test`.
@@ -77,11 +83,13 @@ src/
     search_command.rs, search_service.rs, search_results_text.rs
     data_transfer_objects/  `SearchResponseDTO`, `SearchResultDTO`
     request_parameters/     `SearchParameters`, `TimeRange`
-  update/                   `zeldoc update`: reruns the release installer through axoupdater,
-                            using the receipt the installer wrote; no Zeldoc.ai API calls
+  update/                   `zeldoc update`: reruns the release installer over the folder in the
+                            receipt the installer wrote; no Zeldoc.ai API or GitHub API calls
     update_command.rs, update_service.rs, update_outcome_text.rs, `UpdateError`, `UpdateOutcome`
+    release_downloads.rs    the latest release's tag and its installer, from github.com
+    installer.rs            runs the installer; on Windows moves the running zeldoc.exe aside
     update_notice.rs        the once-a-day "newer release" line on stderr, terminals only
-    data_transfer_objects/  `UpdateCheckDTO`, the cached check
+    data_transfer_objects/  `UpdateCheckDTO`, the cached check; `ReleaseTagDTO`
 ```
 
 A new feature gets its own folder with `<feature>_command.rs`, `<feature>_service.rs` (trait +

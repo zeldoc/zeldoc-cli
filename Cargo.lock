@@ -2303,11 +2303,11 @@ dependencies = [
  "reqwest",
  "rpassword",
  "rust_decimal",
+ "self-replace",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror",
- "tokio",
 ]
 
 [[package]]

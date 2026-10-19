@@ -1,9 +1,14 @@
 use std::env;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use axoupdater::{AxoUpdater, Version};
-use tokio::runtime::{Builder, Runtime};
+use reqwest::blocking::Client;
+use reqwest::redirect;
 
+use super::data_transfer_objects::release_tag_dto::ReleaseTagDTO;
+use super::installer;
+use super::release_downloads;
 use super::update_error::UpdateError;
 use super::update_outcome::UpdateOutcome;
 
@@ -23,8 +28,10 @@ pub trait UpdateService {
     fn update(&self) -> Result<UpdateOutcome, UpdateError>;
 }
 
-/// Updates through the release's own shell or PowerShell installer, found
-/// from the receipt the installer wrote when zeldoc was first installed.
+/// Updates through the release's own shell or PowerShell installer, run over
+/// the folder named in the receipt the installer wrote when zeldoc was first
+/// installed. Everything comes from the release pages on github.com, never
+/// GitHub's API.
 pub struct UpdateServiceImpl {
     current: Version,
     /// Limits each request to GitHub; none when the user waits for an update.
@@ -49,28 +56,37 @@ impl UpdateServiceImpl {
         }
     }
 
-    /// An updater for this executable, or an error when the installer did not
-    /// install it.
-    fn updater(&self) -> Result<AxoUpdater, UpdateError> {
+    /// The folder the installer installed this executable into, or an error
+    /// when the installer did not install it.
+    fn install_directory(&self) -> Result<PathBuf, UpdateError> {
         let mut updater = AxoUpdater::new_for(APP_NAME);
         updater.load_receipt()?;
+        let install_directory = updater.install_prefix_root()?.into_std_path_buf();
         if !updater.check_receipt_is_for_this_executable()? {
             return Err(UpdateError::OtherCopyInstalled {
                 executable: env::current_exe().unwrap_or_default(),
-                installer_directory: updater.install_prefix_root()?.into_std_path_buf(),
+                installer_directory: install_directory,
             });
         }
-        updater.set_current_version(self.current.clone())?;
-        if let Some(timeout) = self.timeout {
-            let client = reqwest::Client::builder()
-                .timeout(timeout)
-                .build()
-                .map_err(UpdateError::HttpClient)?;
-            updater.set_client(client);
-        }
-        // Our own summary goes to stdout; the installer's errors still show.
-        updater.disable_installer_stdout();
-        Ok(updater)
+        Ok(install_directory)
+    }
+
+    /// The latest release and its version.
+    fn latest_release(&self) -> Result<(ReleaseTagDTO, Version), UpdateError> {
+        let tag = release_downloads::latest_release_tag(&self.client(redirect::Policy::none())?)?;
+        let version = tag
+            .version()
+            .ok_or_else(|| UpdateError::UnversionedRelease { tag: tag.clone() })?;
+        Ok((tag, version))
+    }
+
+    fn client(&self, redirects: redirect::Policy) -> Result<Client, UpdateError> {
+        Client::builder()
+            .user_agent(concat!("zeldoc-cli/", env!("CARGO_PKG_VERSION")))
+            .timeout(self.timeout)
+            .redirect(redirects)
+            .build()
+            .map_err(UpdateError::HttpClient)
     }
 }
 
@@ -86,40 +102,41 @@ impl UpdateService for UpdateServiceImpl {
     }
 
     fn can_update(&self) -> bool {
-        self.updater().is_ok()
+        self.install_directory().is_ok()
     }
 
     fn check(&self) -> Result<UpdateOutcome, UpdateError> {
-        let mut updater = self.updater()?;
-        let latest = runtime()?.block_on(updater.query_new_version())?.cloned();
-        Ok(match latest {
-            Some(latest) if latest > self.current => UpdateOutcome::Available {
+        self.install_directory()?;
+        let (_, latest) = self.latest_release()?;
+        Ok(if latest > self.current {
+            UpdateOutcome::Available {
                 current: self.current.clone(),
                 latest,
-            },
-            _ => UpdateOutcome::UpToDate {
+            }
+        } else {
+            UpdateOutcome::UpToDate {
                 current: self.current.clone(),
-            },
+            }
         })
     }
 
     fn update(&self) -> Result<UpdateOutcome, UpdateError> {
-        let mut updater = self.updater()?;
-        Ok(match runtime()?.block_on(updater.run())? {
-            Some(result) => UpdateOutcome::Updated {
-                previous: self.current.clone(),
-                installed: result.new_version,
-            },
-            None => UpdateOutcome::UpToDate {
+        let install_directory = self.install_directory()?;
+        let (tag, latest) = self.latest_release()?;
+        if latest <= self.current {
+            return Ok(UpdateOutcome::UpToDate {
                 current: self.current.clone(),
-            },
+            });
+        }
+        // The installer's download goes through GitHub's redirect to where
+        // release files are stored.
+        let client = self.client(redirect::Policy::default())?;
+        let directory = tempfile::tempdir().map_err(UpdateError::SaveInstaller)?;
+        let installer = release_downloads::download_installer(&client, &tag, directory.path())?;
+        installer::run(&installer, &install_directory)?;
+        Ok(UpdateOutcome::Updated {
+            previous: self.current.clone(),
+            installed: latest,
         })
     }
-}
-
-fn runtime() -> Result<Runtime, UpdateError> {
-    Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(UpdateError::Runtime)
 }

@@ -81,8 +81,8 @@ impl UpdateNotice {
             .and_then(|check| check.latest_version.clone());
         if let Some(check) = self.check {
             // A failed or slow check (offline, GitHub down) also waits a day,
-            // so commands are not held up again and GitHub's rate limit is
-            // not spent on retries.
+            // so commands are not held up again and GitHub is not asked
+            // again after every command.
             if let Ok(Ok(outcome)) = check.recv_timeout(WAIT_AFTER_COMMAND) {
                 latest = Some(outcome.latest_version().clone());
             }

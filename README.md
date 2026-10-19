@@ -41,7 +41,9 @@ zeldoc update --check    # only say whether a newer release exists
 `zeldoc update` downloads the latest release's installer and runs it, so the new version
 replaces the old one in the same folder. It works for copies installed with the commands
 above. A copy built with `cargo install` or unpacked from an archive by hand is updated
-the way it was installed.
+the way it was installed. Both the update and the check below use the release pages on
+github.com, not GitHub's API, so they work on networks where many people share one IP
+address and GitHub's limit for API requests without a login has run out.
 
 Once a day, a command run in a terminal also checks GitHub for a newer release, in the
 background, and prints a line to stderr when there is one. Commands whose output goes to a
