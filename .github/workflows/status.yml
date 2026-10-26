@@ -1,13 +1,14 @@
 name: Status
 
+# Doc-only pushes to main skip the checks. Pull requests always run: main
+# requires these checks, and a required check that never starts blocks the
+# PR forever.
 on:
   push:
     branches: [main]
     paths-ignore:
       - "**.md"
   pull_request:
-    paths-ignore:
-      - "**.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
