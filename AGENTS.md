@@ -40,7 +40,9 @@ Run inside `flox activate`, in this order: `cargo fmt -> cargo clippy -> cargo t
 Releases are built by [cargo-dist](https://opensource.axo.dev/cargo-dist/) (`dist`, pinned in
 the flox environment).
 1. Bump `version` in `Cargo.toml`, run `cargo build` so `Cargo.lock` follows, commit.
-2. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
+2. Tag GitHub's `main` and push: `git fetch origin && git tag v0.2.0 origin/main && git push origin v0.2.0`.
+   Not `gh release create`: cargo-dist creates the GitHub Release itself. Not a plain
+   `git tag v0.2.0` either: it tags whatever is checked out locally.
 3. `.github/workflows/release.yml` builds the five targets, the shell and PowerShell
    installers and checksums, and publishes a GitHub Release. The installer URLs in
    README.md always point at the latest release.
