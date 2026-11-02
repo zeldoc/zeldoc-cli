@@ -17,7 +17,7 @@ concurrency:
 jobs:
   status:
     name: Format, Lint, Test, Typos
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
