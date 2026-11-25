@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use super::credits_dto::CreditsDTO;
 use super::model_usage_dto::ModelUsageDTO;
 use super::monthly_limit_dto::MonthlyLimitDTO;
 use super::usage_date_range_dto::UsageDateRangeDTO;
@@ -19,9 +18,6 @@ pub struct UsageReportDTO {
     pub models: Vec<ModelUsageDTO>,
     /// `None` when the key has no monthly limit.
     pub monthly_limit: Option<MonthlyLimitDTO>,
-    /// `None` when the organization is invoiced instead of using prepaid
-    /// credits.
-    pub credits: Option<CreditsDTO>,
     /// `None` unless the key belongs to a person with a ZDev seat.
     #[serde(default)]
     pub zdev: Option<ZDevAllowanceDTO>,
