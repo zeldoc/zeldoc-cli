@@ -17,7 +17,6 @@ pub fn report() -> UsageReportDTO {
                  "output_tokens": 34000, "cache_read_tokens": 800000, "cache_write_tokens": 0}
             ],
             "monthly_limit": {"limit_usd": "50.00", "spent_usd": "3.1849"},
-            "credits": {"available_usd": "87.66"},
             "zdev": null
         }"#,
     )
