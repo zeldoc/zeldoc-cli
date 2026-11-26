@@ -232,9 +232,8 @@ with a total. Costs are in USD, as the dashboard shows them; Zeldoc.ai's own mod
 covered by the subscription and cost 0. `--period` is `today`, `week`
 (the last 7 days), `month` (this calendar month, the default) or `last-month`, all in UTC.
 `--profile` picks another saved key, and `--all` reports every saved profile instead.
-When the key has a monthly spend limit, the report shows how much of it is used, and for
-organizations on prepaid credits, the credits left. For a key that belongs to a ZDev seat,
-it shows how much of the plan's monthly tokens are used. `--json` prints exact costs and cache
+When the key has a monthly spend limit, the report shows how much of it is used. For a key
+that belongs to a ZDev seat, it shows how much of the plan's monthly tokens are used. `--json` prints exact costs and cache
 writes.
 
 Only the key the CLI uses is reported, never other keys of your organization; the
