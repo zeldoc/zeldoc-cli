@@ -1,3 +1,4 @@
+pub mod credits_dto;
 pub mod model_usage_dto;
 pub mod monthly_limit_dto;
 pub mod profile_usage_dto;

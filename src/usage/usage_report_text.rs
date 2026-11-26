@@ -20,8 +20,8 @@ const COLUMNS: [(&str, Align); 6] = [
 ];
 
 /// The report as text: the key and period, a table with one row per model and
-/// a total row (left out when nothing was used), then the monthly limit
-/// when the report has one.
+/// a total row (left out when nothing was used), then the monthly limit and
+/// credits when the report has them.
 pub fn write_report(
     out: &mut impl Write,
     period: UsagePeriod,
@@ -51,7 +51,7 @@ pub fn write_report(
         text_table::write_table(out, &COLUMNS, &rows)?;
     }
 
-    if report.monthly_limit.is_some() || report.zdev.is_some() {
+    if report.monthly_limit.is_some() || report.credits.is_some() || report.zdev.is_some() {
         writeln!(out)?;
     }
     if let Some(limit) = &report.monthly_limit {
@@ -65,6 +65,13 @@ pub fn write_report(
     }
     if let Some(zdev) = &report.zdev {
         writeln!(out, "ZDev           {}", zdev_line(zdev))?;
+    }
+    if let Some(credits) = &report.credits {
+        writeln!(
+            out,
+            "Credits        ${} available to the organization",
+            dollars(credits.available_usd)
+        )?;
     }
     Ok(())
 }
@@ -235,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn report_lists_models_with_a_total_then_limit() {
+    fn report_lists_models_with_a_total_then_limit_and_credits() {
         assert_eq!(
             rendered(&test_usage_report::report()),
             "\
@@ -248,16 +255,18 @@ zdev                          120   1.2M     34K        800K    0.00
 TOTAL                         162   2.1M     59K        1.5M    3.18
 
 Monthly limit  $3.18 of $50.00 used this month (6%)
+Credits        $87.66 available to the organization
 "
         );
     }
 
     #[test]
-    fn report_without_usage_or_limit_is_just_key_and_period() {
+    fn report_without_usage_limit_or_credits_is_just_key_and_period() {
         let mut report = test_usage_report::report();
         report.key_name = None;
         report.models.clear();
         report.monthly_limit = None;
+        report.credits = None;
         assert_eq!(
             rendered(&report),
             "\
@@ -271,6 +280,7 @@ Period  this month, 2026-10-01 to 2026-10-05 (UTC)
     fn zdev_allowance_says_how_much_is_used_and_what_happens_after() {
         let mut report = test_usage_report::report();
         report.monthly_limit = None;
+        report.credits = None;
         report.models.clear();
         report.zdev = Some(
             serde_json::from_str(
