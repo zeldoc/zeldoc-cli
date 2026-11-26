@@ -31,8 +31,7 @@ pub enum Command {
     /// Reports only the key the CLI uses, not other keys of your
     /// organization; the dashboard at app.zeldoc.ai has the whole
     /// organization. Periods are in UTC. Also shows the key's monthly spend
-    /// limit, the organization's prepaid credits and your ZDev allowance,
-    /// when there are any. Costs are in USD, as the dashboard shows them;
+    /// limit and your ZDev allowance, when there are any. Costs are in USD, as the dashboard shows them;
     /// Zeldoc's own models are covered by the subscription and cost 0.
     /// Requests can take a minute to show up.
     Usage(UsageCommand),
